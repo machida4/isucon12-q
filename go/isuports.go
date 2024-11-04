@@ -1223,8 +1223,8 @@ func playerHandler(c echo.Context) error {
 		ORDER BY c.created_at ASC
 	`
 	rows, err := tx.QueryContext(ctx, query, v.tenantID, playerID, v.tenantID)
-	tx.Commit();
 	if err != nil {
+		tx.Rollback();
 		return fmt.Errorf("error executing joined query: %w", err)
 	}
 	defer rows.Close()
@@ -1238,6 +1238,7 @@ func playerHandler(c echo.Context) error {
 		}
 		psds = append(psds, psd)
 	}
+	tx.Commit();
 
 	res := SuccessResult{
 		Status: true,
