@@ -1280,6 +1280,14 @@ type CompetitionRankingHandlerResult struct {
 // 参加者向けAPI
 // GET /api/player/competition/:competition_id/ranking
 // 大会ごとのランキングを取得する
+
+type PlayerScoreWithPlayer struct {
+	Score            int64  `db:"score"`
+	PlayerID         string `db:"player_id"`
+	PlayerDisplayName string `db:"display_name"`
+	RowNum           int64  `db:"row_num"`
+}
+
 func competitionRankingHandler(c echo.Context) error {
 	ctx := context.Background()
 	v, err := parseViewer(c)
@@ -1345,11 +1353,28 @@ func competitionRankingHandler(c echo.Context) error {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
 	defer fl.Close()
-	pss := []PlayerScoreRow{}
+
+	query := `
+		SELECT
+			ps.score AS score,
+			ps.player_id AS player_id,
+			ps.row_num AS row_num
+			p.display_name AS display_name
+		FROM
+			player_score AS ps
+		JOIN
+			player AS p ON ps.player_id = p.id
+		WHERE
+			ps.tenant_id = ? AND ps.competition_id = ?
+		ORDER BY
+			ps.row_num DESC
+	`
+
+	pss := []PlayerScoreWithPlayer{}
 	if err := tenantDB.SelectContext(
 		ctx,
 		&pss,
-		"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC",
+		query,
 		tenant.ID,
 		competitionID,
 	); err != nil {
@@ -1364,14 +1389,10 @@ func competitionRankingHandler(c echo.Context) error {
 			continue
 		}
 		scoredPlayerSet[ps.PlayerID] = struct{}{}
-		p, err := retrievePlayer(ctx, tenantDB, ps.PlayerID)
-		if err != nil {
-			return fmt.Errorf("error retrievePlayer: %w", err)
-		}
 		ranks = append(ranks, CompetitionRank{
 			Score:             ps.Score,
-			PlayerID:          p.ID,
-			PlayerDisplayName: p.DisplayName,
+			PlayerID:          ps.PlayerID,
+			PlayerDisplayName: ps.PlayerDisplayName,
 			RowNum:            ps.RowNum,
 		})
 	}
