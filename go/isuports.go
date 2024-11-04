@@ -1250,19 +1250,6 @@ func playerHandler(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, res)
 }
-	res := SuccessResult{
-		Status: true,
-		Data: PlayerHandlerResult{
-			Player: PlayerDetail{
-				ID:             p.ID,
-				DisplayName:    p.DisplayName,
-				IsDisqualified: p.IsDisqualified,
-			},
-			Scores: psds,
-		},
-	}
-	return c.JSON(http.StatusOK, res)
-}
 
 type CompetitionRank struct {
 	Rank              int64  `json:"rank"`
