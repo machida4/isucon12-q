@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# help
+function usage {
+	cat <<-EOS
+	Usage: $(basename "$0") [OPTION]...
+		-t VALUE    post text
+		-f VALUE    post file
+	EOS
+	exit 2
+}
+
+url=https://discord.com/api/webhooks/874119798030757938/tmoKC8jNjMHuuAgk3RhuqYGB83ceCMlceMNF_3eFIK0fWXt0Zo-yvddbzgLKQxBQYnPv
+
+# パイプ時の処理
+if [ -p /dev/stdin ]; then
+	text=`cat -`;
+	curl $url -H "Content-Type: application/json" -d @-<<-EOS
+		{ "content": "$text" }
+	EOS
+	exit 0
+fi
+
+while getopts f:t: OPT; do
+	case $OPT in
+		t ) curl $url -H "Content-Type: application/json" -d @-<<-EOS
+				{ "content": "$OPTARG" }
+			EOS
+;;
+		f ) curl $url -H "Content-Type: multipart/form-data" -F "file=@$OPTARG";;
+		* ) usage;;
+	esac
+done
+
+exit 0
+TEST
