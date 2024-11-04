@@ -1358,7 +1358,7 @@ func competitionRankingHandler(c echo.Context) error {
 		SELECT
 			ps.score AS score,
 			ps.player_id AS player_id,
-			ps.row_num AS row_num
+			ps.row_num AS row_num,
 			p.display_name AS display_name
 		FROM
 			player_score AS ps
