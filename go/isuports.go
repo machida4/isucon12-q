@@ -1212,7 +1212,7 @@ func playerHandler(c echo.Context) error {
 	query := `
 		SELECT c.title AS competition_title, ps.score
 		FROM competition AS c
-		LEFT JOIN (
+		INNER JOIN (
 			SELECT * FROM player_score
 			WHERE tenant_id = ? AND player_id = ?
 			ORDER BY row_num DESC
