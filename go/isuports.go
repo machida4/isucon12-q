@@ -1201,55 +1201,55 @@ func playerHandler(c echo.Context) error {
 		}
 		return fmt.Errorf("error retrievePlayer: %w", err)
 	}
-	cs := []CompetitionRow{}
-	if err := tenantDB.SelectContext(
-		ctx,
-		&cs,
-		"SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC",
-		v.tenantID,
-	); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("error Select competition: %w", err)
-	}
 
-	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
+	// competition と player_score を JOIN して一度に取得
 	fl, err := flockByTenantID(v.tenantID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
 	defer fl.Close()
-	pss := make([]PlayerScoreRow, 0, len(cs))
-	for _, c := range cs {
-		ps := PlayerScoreRow{}
-		if err := tenantDB.GetContext(
-			ctx,
-			&ps,
-			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1",
-			v.tenantID,
-			c.ID,
-			p.ID,
-		); err != nil {
-			// 行がない = スコアが記録されてない
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, playerID=%s, %w", v.tenantID, c.ID, p.ID, err)
+
+	query := `
+		SELECT c.title AS competition_title, ps.score
+		FROM competition AS c
+		LEFT JOIN (
+			SELECT * FROM player_score
+			WHERE tenant_id = ? AND player_id = ?
+			ORDER BY row_num DESC
+		) AS ps
+		ON c.id = ps.competition_id
+		WHERE c.tenant_id = ?
+		ORDER BY c.created_at ASC
+	`
+	rows, err := tenantDB.QueryContext(ctx, query, v.tenantID, playerID, v.tenantID)
+	if err != nil {
+		return fmt.Errorf("error executing joined query: %w", err)
+	}
+	defer rows.Close()
+
+	// 結果を集計
+	psds := []PlayerScoreDetail{}
+	for rows.Next() {
+		var psd PlayerScoreDetail
+		if err := rows.Scan(&psd.CompetitionTitle, &psd.Score); err != nil {
+			return fmt.Errorf("error scanning row: %w", err)
 		}
-		pss = append(pss, ps)
+		psds = append(psds, psd)
 	}
 
-	psds := make([]PlayerScoreDetail, 0, len(pss))
-	for _, ps := range pss {
-		comp, err := retrieveCompetition(ctx, tenantDB, ps.CompetitionID)
-		if err != nil {
-			return fmt.Errorf("error retrieveCompetition: %w", err)
-		}
-		psds = append(psds, PlayerScoreDetail{
-			CompetitionTitle: comp.Title,
-			Score:            ps.Score,
-		})
+	res := SuccessResult{
+		Status: true,
+		Data: PlayerHandlerResult{
+			Player: PlayerDetail{
+				ID:             p.ID,
+				DisplayName:    p.DisplayName,
+				IsDisqualified: p.IsDisqualified,
+			},
+			Scores: psds,
+		},
 	}
-
+	return c.JSON(http.StatusOK, res)
+}
 	res := SuccessResult{
 		Status: true,
 		Data: PlayerHandlerResult{
