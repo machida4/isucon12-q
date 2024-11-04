@@ -21,12 +21,11 @@ restart-3: ## Restart for Server 3
 
 app-restart: ## Restart Server
 	@sudo systemctl daemon-reload
-	@bundle 1> /dev/null
-	@sudo systemctl restart XXX.ruby.service
-	@echo 'Restart ruby'
+	@sudo systemctl restart isuports.service
+	@echo 'Restart service'
 
 app-log: ## Tail server log
-	@sudo journalctl -f -u XXX.ruby.service
+	@sudo journalctl -f -u isuports.service
 
 nginx-restart: ## Restart nginx
 	@sudo cp /dev/null /var/log/nginx/access.log
