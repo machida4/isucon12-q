@@ -27,6 +27,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/google/uuid"
 )
 
 const (
@@ -98,29 +99,8 @@ func createTenantDB(id int64) error {
 }
 
 // システム全体で一意なIDを生成する
-func dispenseID(ctx context.Context) (string, error) {
-	var id int64
-	var lastErr error
-	for i := 0; i < 100; i++ {
-		var ret sql.Result
-		ret, err := adminDB.ExecContext(ctx, "REPLACE INTO id_generator (stub) VALUES (?);", "a")
-		if err != nil {
-			if merr, ok := err.(*mysql.MySQLError); ok && merr.Number == 1213 { // deadlock
-				lastErr = fmt.Errorf("error REPLACE INTO id_generator: %w", err)
-				continue
-			}
-			return "", fmt.Errorf("error REPLACE INTO id_generator: %w", err)
-		}
-		id, err = ret.LastInsertId()
-		if err != nil {
-			return "", fmt.Errorf("error ret.LastInsertId: %w", err)
-		}
-		break
-	}
-	if id != 0 {
-		return fmt.Sprintf("%x", id), nil
-	}
-	return "", lastErr
+func dispenseID() (string, error) {
+	return uuid.New().String(), nil
 }
 
 // 全APIにCache-Control: privateを設定する
@@ -793,7 +773,7 @@ func playersAddHandler(c echo.Context) error {
 
 	pds := make([]PlayerDetail, 0, len(displayNames))
 	for _, displayName := range displayNames {
-		id, err := dispenseID(ctx)
+		id, err := dispenseID()
 		if err != nil {
 			return fmt.Errorf("error dispenseID: %w", err)
 		}
@@ -911,7 +891,7 @@ func competitionsAddHandler(c echo.Context) error {
 	title := c.FormValue("title")
 
 	now := time.Now().Unix()
-	id, err := dispenseID(ctx)
+	id, err := dispenseID()
 	if err != nil {
 		return fmt.Errorf("error dispenseID: %w", err)
 	}
@@ -1081,7 +1061,7 @@ func competitionScoreHandler(c echo.Context) error {
 				fmt.Sprintf("error strconv.ParseUint: scoreStr=%s, %s", scoreStr, err),
 			)
 		}
-		id, err := dispenseID(ctx)
+		id, err := dispenseID()
 		if err != nil {
 			return fmt.Errorf("error dispenseID: %w", err)
 		}
