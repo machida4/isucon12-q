@@ -1203,12 +1203,13 @@ func playerHandler(c echo.Context) error {
 	}
 
 	// competition と player_score を JOIN して一度に取得
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
-	defer fl.Close()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
+	// defer fl.Close()
 
+	tx, _ := tenantDB.Beginx();
 	query := `
 		SELECT c.title AS competition_title, ps.score
 		FROM competition AS c
@@ -1221,7 +1222,8 @@ func playerHandler(c echo.Context) error {
 		WHERE c.tenant_id = ?
 		ORDER BY c.created_at ASC
 	`
-	rows, err := tenantDB.QueryContext(ctx, query, v.tenantID, playerID, v.tenantID)
+	rows, err := tx.QueryContext(ctx, query, v.tenantID, playerID, v.tenantID)
+	tx.Commit();
 	if err != nil {
 		return fmt.Errorf("error executing joined query: %w", err)
 	}
