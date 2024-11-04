@@ -1335,11 +1335,11 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
-	defer fl.Close()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
+	// defer fl.Close()
 
 	query := `
 		SELECT
@@ -1358,7 +1358,8 @@ func competitionRankingHandler(c echo.Context) error {
 	`
 
 	pss := []PlayerScoreWithPlayer{}
-	if err := tenantDB.SelectContext(
+	tx, _ := tenantDB.Beginx();
+	if err := tx.SelectContext(
 		ctx,
 		&pss,
 		query,
@@ -1367,6 +1368,7 @@ func competitionRankingHandler(c echo.Context) error {
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, %w", tenant.ID, competitionID, err)
 	}
+	tx.Commit();
 	ranks := make([]CompetitionRank, 0, len(pss))
 	scoredPlayerSet := make(map[string]struct{}, len(pss))
 	for _, ps := range pss {
